@@ -1,0 +1,34 @@
+---
+title: "STAT7510_RMHW1_Tjepkes"
+author: "Benjamin Tjepkes"
+date: "2024-06-03"
+output: word_document
+---
+
+This is the rendered output for **Homework 1** of **STAT 7510**.
+
+```{r setup, include=TRUE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Install Packages
+
+The first step we will do is load in the `ISLR2` package from CRAN. This provides access to the collection of data-sets used in the book 'An Introduction to Statistical Learning with Applications in R, Second Edition'.
+
+```{r}
+# Install, if necessary
+#install.packages('ISLR2')
+
+# Load in package
+library(ISLR2)
+```
+
+## Preview Data
+
+Next, we will print out the first 6 records in the *Auto* data set within the `ISLR2` package.
+
+```{r}
+head(ISLR2::Auto)
+```
+
+Well, that was exciting!
