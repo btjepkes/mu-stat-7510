@@ -1,0 +1,162 @@
+---
+title: "STAT 7510 - Textbook HW2"
+author: "Benjamin Tjepkes"
+date: "2024-06-06"
+output:
+  word_document:
+    toc: TRUE    
+    reference_docx: "C:/Users/btjep/OneDrive/A_School/Mizzou/Coursework/STAT_7510 - Applied Statistical Models I/X00_Logistics/custom_docx_template.docx"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Instructions
+
+From the course textbook, An Introduction to Statistical Learning with Applications in R Second Edition,
+
+Chapter 2, Problems 6, 7, and 8.
+
+## Problem 6
+
+**Describe the differences between a parametric and a non-parametric statistical learning approach. What are the advantages of a parametric approach to regression or classification (as opposed to a nonparametric approach)? What are its disadvantages?**
+
+*Parametric* methods assume a specific form for the true function underlying the data, which is estimated from a finite number of parameters.
+
+- Advantages: Simple with only a few parameter estimates, easily interpretable.
+- Disadvantages: Can lead to model mis-specification.
+
+Alternatively, *non-parametric* methods remove any assumptions of the function's true form and instead use an essentially infinite number of estimate parameters.
+
+- Advantages: Flexibility, can fit a wider range of distribution forms.
+- Disadvantages: Requires more observations, can be more difficult to interpret.
+
+
+## Problem 7
+
+**(A) Compute the Euclidean distance between each observation and the test point, X1 = X2 = X3 = 0.**
+
+```{r}
+# create data matrix from book
+(data <- matrix(c(
+  0, 3, 0,
+  2, 0, 0,
+  0, 1, 3,
+  0, 1, 2,
+  -1, 0, 1,
+  1, 1, 1
+), ncol = 3, byrow = TRUE))
+
+# set origin
+origin <- c(0,0,0)
+
+# Use the dist() function to calculate distances
+(distances <- apply(data, 1, function(row) {
+  dist(rbind(origin, row))
+}))
+
+```
+
+With the origin of c(0,0,0), our Euclidean distances are: *`r distances`*. See above for computation.
+
+**(B) What is our prediction with K =1? Why?**
+
+Our prediction with `K=1` is *Green*, because the closest neighbor to the origin has a label of *Green*.  See below for computation.
+
+```{r}
+# input labels
+labels <- c("Red", "Red", "Red", "Green", "Green", "Red")
+
+# combine vect into matrix
+distTable <- cbind(distances, labels)
+
+# order matrix
+distTable[order(distTable[,1]),]
+```
+
+**(C) What is our prediction with K =3? Why?**
+
+Our prediction with `K=3` is *Red*, because 2/3 of the closest neighbors to the origin have the label of *red*. See above for computation.
+
+**(D) If the Bayes decision boundary in this problem is highly nonlinear, then would we expect the best value for K to be large or small? Why?**
+
+Small, because a lower K in a KNN operation will allow for more complexity in the boundary.
+
+
+## Problem 8
+
+**(A) Loading Data**
+
+```{r}
+# Read in data
+college <- read.csv(file = "../X00_Data/College.csv", header = TRUE)
+```
+
+**(B) Manipulating Data**
+
+```{r}
+# Assign row names
+rownames(college) <- college[,1]
+# Remove college names that are now row names
+college <- college[,-1]
+# View first couple rows and columns of matrix
+head(college[,1:5], 10)
+```
+
+**(C) Inspecting and Plotting Data**
+
+```{r}
+# View the summary
+base::summary(college)
+```
+
+```{r}
+# Create scatterplot matrix of subset, ignoring the first nominal column
+pairs(college[,2:10], )
+```
+```{r}
+# Boxplot of private vs. public out of state tuition
+boxplot(college$Outstate ~ college$Private, main = "Private vs. Public Out-of-State Tuition")
+```
+
+```{r}
+# establish variable as vector
+Elite <- rep("No", nrow(college))
+# select observations of the top students
+Elite[college$Top10perc>50] <- "Yes"
+# convert vector to factors
+Elite <- factor(Elite, levels = c("Yes", "No"))
+# create df
+college <- data.frame(college, Elite)
+# summarize
+base::summary(college)
+# plot data of elite
+boxplot(college$Outstate ~ college$Elite, main = "Elite vs. Non-Elite Out-of-State Tuition")
+```
+
+```{r}
+# Plot histograms with different bin sizes
+par(mfrow = c(2, 2))
+hist(college$Enroll, col = 2, breaks = 5, main = "5 Bins")
+hist(college$Enroll, col = 3, breaks = 15, main = "15 Bins")
+hist(college$Enroll, col = 4, breaks = 100, main = "100 Bins")
+hist(college$Enroll, col = 5, breaks = 500, main = "500 Bins")
+```
+
+
+```{r}
+# public vs private acceptance rate
+boxplot((college$Accept / college$Apps) ~ college$Private,
+        main = "Private vs. Public Acceptance Rates",
+        horizontal = TRUE)
+```
+
+Private colleges had a higher median acceptance rate than public colleges, but looks highly left skewed as well.
+
+## Session Info
+
+```{r}
+sessionInfo()
+```
+
