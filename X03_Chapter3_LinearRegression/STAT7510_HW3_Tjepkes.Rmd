@@ -1,0 +1,205 @@
+---
+title: "STAT 7510 - Textbook HW3"
+author: "Benjamin Tjepkes"
+date: "2024-06-11"
+output:
+  word_document:
+    toc: TRUE    
+    reference_docx: "C:/Users/btjep/OneDrive/A_School/Mizzou/Coursework/STAT_7510 - Applied Statistical Models I/X00_Logistics/custom_docx_template.docx"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Instructions
+
+From the course textbook, *An Introduction to Statistical Learning with Applications in R Second Edition*,
+
+Chapter 3, Problems 2, 3, 8, and 10.
+
+
+## Problem 2
+
+**Carefully explain the differences between the KNN classifier and KNN regression methods.**
+
+The primary difference between the KNN classifier and regression methods is the data types for the resulting output of each model. The KNN classification methods result in a discrete class label, whereas the KNN regression methods result in a continuous prediction for a given function.
+
+
+## Problem 3
+
+**(A) Which answer is correct, and why?**
+
+\[ Y = 50 + 20(\text{GPA}) + 0.07(\text{IQ}) + 35(\text{LEVEL}) + 0.01(\text{GPA} \cdot \text{IQ}) - 10 (\text{GPA} \cdot \text{LEVEL}) \]
+
+iii. For a fixed value of IQ and GPA, high school graduates earn more, on average, than college graduates provided that the GPA is high enough. This is true when high school graduates have a GPA above 3.5, which can be found by solving the inequality of $\hat{Y}_{\text{HighSchool}} > \hat{Y}_{\text{College}}$.
+
+```{r, eval=FALSE, echo=FALSE}
+library(plotly)
+
+model <- function(gpa, iq, level) {
+  50 +
+  gpa * 20 +
+  iq * 0.07 +
+  level * 35 +
+  gpa * iq * 0.01 +
+  gpa * level * -10
+}
+x <- seq(1, 5, length = 10)
+y <- seq(1, 200, length = 20)
+college <- t(outer(x, y, model, level = 1))
+high_school <- t(outer(x, y, model, level = 0))
+
+plot_ly(x = x, y = y) |>
+  add_surface(
+    z = ~college,
+    colorscale = list(c(0, 1), c("rgb(107,184,214)", "rgb(0,90,124)")),
+    colorbar = list(title = "College")) |>
+  add_surface(
+    z = ~high_school,
+    colorscale = list(c(0, 1), c("rgb(255,112,184)", "rgb(128,0,64)")),
+    colorbar = list(title = "High school")) |>
+  layout(scene = list(
+    xaxis = list(title = "GPA"),
+    yaxis = list(title = "IQ"),
+    zaxis = list(title = "Salary")))
+```
+
+
+
+**(B) Predict the salary of a college graduate with IQ of 110 and a GPA of 4.0.**
+
+```{r}
+IQ <- 110
+GPA <- 4.0
+LEVEL <- 1
+
+Y <-  50 + 20*(GPA) + 0.07*(IQ) + 35*(LEVEL) + 0.01*(GPA*IQ) - 10*(GPA*LEVEL)
+```
+
+The predicted salary of a college graduate given the provided IQ and GPA is `r Y`.
+
+**(C) True or false: Since the coefficient for the GPA/IQ interaction term is very small, there is very little evidence of an interaction effect. Justify your answer.**
+
+False, the small coefficient means there is likely a non-additive relationship but we need to compare model p-values for more support of our decision.
+
+
+## Problem 8
+
+**(A) Use the lm() function to perform a simple linear regression with mpg as the response and horsepower as the predictor. Use the summary() function to print the results. Comment on the output.**
+
+```{r}
+auto_data <- read.csv(file = "../X00_Data/Auto.csv", header = TRUE)
+
+auto_data$horsepower <- as.numeric(auto_data$horsepower)
+
+model.fit <- lm(mpg ~ horsepower, data = auto_data)
+
+summary(model.fit)
+```
+
+i. Yes, there is a relationship between horsepower and MPG.
+
+ii. The relationship is moderately strong, with an $R^2$ of ~0.6049.
+
+iii. The relationship is negative, shown by the coefficient of horsepower ~ -0.1578, meaning that higher horsepower lower MPG.
+
+```{r}
+predict(model.fit, data.frame(horsepower=c(98)), interval="confidence")
+```
+
+
+iv. The predicted value is 24.47 [23.97, 24.96].
+
+
+**(B) Plot the response and the predictor. Use the abline() function to display the least squares regression line.**
+
+```{r}
+plot(auto_data$horsepower, auto_data$mpg)
+abline(model.fit)
+```
+
+
+
+**(C) Use the plot() function to produce diagnostic plots of the least squares regression fit. Comment on any problems you see with the fit.**
+
+```{r}
+par(mfrow=c(2,2))
+plot(model.fit)
+```
+
+Based on the residuals vs fitted plot, there is a non-linear trend not accounted for in our model.
+
+## Problem 10
+
+**(a) Fit a multiple regression model to predict Sales using Price, Urban, and US.**
+
+```{r}
+carseat_data <- ISLR2::Carseats
+
+lm1.fit <- lm(Sales ~ Price + Urban + US, data = carseat_data)
+
+summary(lm1.fit)
+```
+
+
+**(b) Provide an interpretation of each coefficient in the model. Be careful—some of the variables in the model are qualitative!**
+
+Price: The model shows Price is negatively associated with Sales, meaning higher prices relate to lower sales.
+
+Urban: The model shows Urban with a negative coefficient, but is not significant.
+
+US: The model shows US is positively associated with Sales, meaning being located in the US is related to higher sales.
+
+**(c) Write out the model in equation form, being careful to handle the qualitative variables properly**
+
+$$Sales = 13.04 + (-0.05 * Price) + (-0.02 * Urban) + (1.20 * US)$$
+
+
+**(d) For which of the predictors can you reject the null hypothesis H0 : βj =0?**
+
+Price and US.
+
+**(e) On the basis of your response to the previous question, fit a smaller model that only uses the predictors for which there is evidence of association with the outcome.**
+
+```{r}
+lm2.fit <- lm(Sales ~ Price + US, data = carseat_data)
+
+summary(lm2.fit)
+```
+
+
+**(f) How well do the models in (a) and (e) fit the data?**
+
+Both models show similar RSE values and $R^2$ values, with a low to moderate fit. The trimmed model fits slightly better.
+
+**(g) Using the model from (e), obtain 95 % confidence intervals for the coefficient(s).**
+
+```{r}
+confint(lm2.fit)
+```
+
+
+**(h) Is there evidence of outliers or high leverage observations in the model from (e)?**
+
+```{r}
+plot(predict(lm2.fit), rstudent(lm2.fit))
+```
+
+No glaring evidence of outliers.
+
+
+```{r}
+par(mfrow=c(2,2))
+plot(lm2.fit)
+```
+
+Some evidence of high leverage points.
+
+
+## Session Info
+
+```{r}
+sessionInfo()
+```
+
