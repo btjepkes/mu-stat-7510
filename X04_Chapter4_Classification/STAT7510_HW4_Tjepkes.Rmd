@@ -1,0 +1,361 @@
+---
+title: "STAT 7510 - Textbook HW4"
+author: "Benjamin Tjepkes"
+date: "2024-06-14"
+output:
+  word_document:
+    toc: TRUE    
+    reference_docx: "C:/Users/btjep/OneDrive/A_School/Mizzou/Coursework/STAT_7510 - Applied Statistical Models I/X00_Logistics/custom_docx_template.docx"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Instructions
+
+From the course textbook, *An Introduction to Statistical Learning with Applications in R Second Edition*, Chapter 4, Problems 6, 9, 13, and 15.
+
+## Problem 6
+
+**(a) Estimate the probability that a student who studies for 40 h and has an undergrad GPA of 3.5 gets an A in the class.**
+
+```{r}
+beta0 <- -6
+beta1 <- 0.05
+beta2 <- 1.0
+x1 <- 40
+x2 <- 3.5
+
+prob_x <- (exp(beta0 + beta1*x1 + beta2*x2)) / (1 + exp(beta0 + beta1*x1 + beta2*x2))
+```
+
+The estimated probability of a student getting an A given (hours studied = 40) and (GPA = 3.5) is **`r prob_x * 100`%**.
+
+**(b) How many hours would the student in part (a) need to study to have a 50 % chance of getting an A in the class?**
+
+```{r}
+calc_prob_x <- function(x1) {
+  exp_val <- exp(beta0 + beta1*x1 + beta2*x2)
+  return(exp_val / (1 + exp_val))
+  }
+
+root <- uniroot(function(x) calc_prob_x(x) - 0.5, interval = c(-100, 100))
+x1 <- root$root
+```
+
+The student would have to study for **`r x1` hours** for a 50% chance of getting an A.
+
+## Problem 9
+
+**(a) On average, what fraction of people with an odds of 0.37 of defaulting on their credit card payment will in fact default?**
+
+\[ \text{odds} = \frac{P(\text{X})}{1 - P(\text{X})} \]
+
+\[ \text{0.37} = \frac{P(\text{X})}{1 - P(\text{X})} \]
+
+\[ \text{0.37} = 1.37P(X) \]
+
+\[ \frac{\text{0.37}}{1.37} = P(X) \]
+
+```{r}
+prob_x <- 0.37/1.37
+```
+
+**`r prob_x*100`%** of people will default.
+
+**(b) Suppose that an individual has a 16 % chance of defaulting on her credit card payment. What are the odds that she will default?**
+
+\[ \text{odds} = \frac{P(\text{X})}{1 - P(\text{X})} \]
+
+\[ \text{odds} = \frac{0.16}{1 - 0.16} \]
+
+```{r}
+odds <- 0.16 / (1-0.16)
+```
+
+The odds of default is **`r odds`**.
+
+## Problem 13
+
+**(a) Produce some numerical and graphical summaries of the Weekly data. Do there appear to be any patterns?**
+
+```{r}
+weekly_returns <- ISLR2::Weekly
+
+summary(weekly_returns)
+
+cor(weekly_returns[,-9])
+
+pairs(weekly_returns)
+```
+
+**(b) Use the full data set to perform a logistic regression with Direction as the response and the five lag variables plus Volume as predictors.**
+
+```{r}
+glm_logit_fit <- glm(Direction ~ Lag1 + Lag2 + Lag3 + Lag4 + Lag5 + Volume,
+                     data = weekly_returns,
+                     family = binomial(link = "logit"))
+
+summary(glm_logit_fit)
+```
+
+The $Lag2$ variable is significant in the model.
+
+**(c) Compute the confusion matrix and overall fraction of correct predictions. Explain what the confusion matrix is telling you about the types of mistakes made by logistic regression.**
+
+```{r}
+# get prediction probabilities
+glm_logit_probs <- predict(glm_logit_fit, type = "response")
+#contrasts(weekly_returns$Direction)
+glm_logit_predict <- rep("Down", nrow(weekly_returns))
+glm_logit_predict[glm_logit_probs > 0.5]  <- "Up"
+table(glm_logit_predict, weekly_returns$Direction)
+misclass <- mean(glm_logit_predict != weekly_returns$Direction)
+trueclass <- mean(glm_logit_predict == weekly_returns$Direction)
+```
+
+The confusion matrix shows the number of observations that were misclassified and those that were correctly classified in the Direction category. In this model, the error rate is **`r misclass*100`%**.
+
+**(d) Now fit the logistic regression model using a training data period from 1990 to 2008, with Lag2 as the only predictor. Compute the confusion matrix and the overall fraction of correct predictions for the held out data (that is, the data from 2009 and 2010).**
+
+```{r}
+train_index <- weekly_returns$Year < 2009
+
+glm2_train <- weekly_returns[train_index, ]
+  
+glm2_test <- weekly_returns[!train_index, ]
+```
+
+```{r}
+glm2_logit_fit <- glm(Direction ~ Lag2,
+                     data = glm2_train,
+                     family = binomial(link = "logit"))
+
+glm2_logit_probs <- predict(glm2_logit_fit, glm2_test, type = "response")
+
+glm2_logit_predict <- rep("Down", nrow(glm2_test))
+glm2_logit_predict[glm2_logit_probs > 0.5]  <- "Up"
+
+table(glm2_logit_predict, glm2_test$Direction)
+
+(misclass2 <- mean(glm2_logit_predict != glm2_test$Direction))
+(trueclass2 <- mean(glm2_logit_predict == glm2_test$Direction))
+
+```
+
+The correct classification on the test data set was `r trueclass2*100`%.
+
+
+**(e) Repeat (d) using LDA.**
+
+```{r}
+library(MASS)
+
+lda_model <- MASS::lda(Direction ~ Lag2,
+                       data = glm2_train)
+
+lda_probs <- predict(lda_model, glm2_test, type = "response")
+
+table(lda_probs$class, glm2_test$Direction)
+
+(misclass3 <- mean(lda_probs$class != glm2_test$Direction))
+(trueclass3 <- mean(lda_probs$class == glm2_test$Direction))
+
+```
+
+
+**(f) Repeat (d) using QDA.**
+
+```{r}
+qda_model <- MASS::qda(Direction ~ Lag2,
+                       data = glm2_train)
+
+qda_probs <- predict(qda_model, glm2_test, type = "response")
+
+table(qda_probs$class, glm2_test$Direction)
+
+(misclass4 <- mean(qda_probs$class != glm2_test$Direction))
+(trueclass4 <- mean(qda_probs$class == glm2_test$Direction))
+```
+
+
+**(g) Repeat (d) using KNN with K =1.**
+
+```{r}
+library(class)
+
+train_X <- as.matrix(glm2_train$Lag2)
+  
+test_X <- as.matrix(glm2_test$Lag2)
+  
+train_Y <- glm2_train$Direction
+
+set.seed(1)
+
+knn_pred <- class::knn(train = train_X,
+                       test = test_X,
+                       cl = train_Y,
+                       k = 1)
+
+table(knn_pred, glm2_test$Direction)
+
+(misclass5 <- mean(knn_pred != glm2_test$Direction))
+(trueclass5 <- mean(knn_pred == glm2_test$Direction))
+
+```
+
+
+**(h) Repeat (d) using naive Bayes.**
+
+```{r}
+library(e1071)
+
+nb_fit <- e1071::naiveBayes(Direction ~ Lag2,
+                            data = glm2_train)
+
+
+nb_class <- predict(nb_fit, glm2_test, type = "class")
+
+table(nb_class, glm2_test$Direction)
+
+(misclass6 <- mean(nb_class != glm2_test$Direction))
+(trueclass6 <- mean(nb_class == glm2_test$Direction))
+
+```
+
+
+**(i) Which of these methods appears to provide the best results on this data?**
+
+Logistic regression and LDA are the best performing models on these data, with around a 62% correct classification rate.
+
+**(j) Experiment with different combinations of predictors, including possible transformations and interactions, for each of the methods.**
+
+```{r}
+library(MASS)
+
+lda_model <- MASS::lda(Direction ~ Lag1 + Lag2,
+                       data = glm2_train)
+
+lda_probs <- predict(lda_model, glm2_test, type = "response")
+
+table(lda_probs$class, glm2_test$Direction)
+
+(misclass7 <- mean(lda_probs$class != glm2_test$Direction))
+(trueclass7 <- mean(lda_probs$class == glm2_test$Direction))
+
+```
+
+```{r}
+library(MASS)
+
+lda_model <- MASS::lda(Direction ~ Lag1 + I(Lag2^2),
+                       data = glm2_train)
+
+lda_probs <- predict(lda_model, glm2_test, type = "response")
+
+table(lda_probs$class, glm2_test$Direction)
+
+(misclass8 <- mean(lda_probs$class != glm2_test$Direction))
+(trueclass8 <- mean(lda_probs$class == glm2_test$Direction))
+
+```
+
+```{r}
+library(class)
+
+train_X <- as.matrix(glm2_train$Lag2)
+  
+test_X <- as.matrix(glm2_test$Lag2)
+  
+train_Y <- glm2_train$Direction
+
+set.seed(1)
+
+knn_pred <- class::knn(train = train_X,
+                       test = test_X,
+                       cl = train_Y,
+                       k = 3)
+
+table(knn_pred, glm2_test$Direction)
+
+(misclass9 <- mean(knn_pred != glm2_test$Direction))
+(trueclass9 <- mean(knn_pred == glm2_test$Direction))
+
+```
+
+Out of the additional methods I tested, the LDA still provided the best predictive capabilities, specifically with the $Lag1$ and $Lag2^2$ as predictors.
+
+
+## Problem 15
+
+**(a) Write a function, Power(), that prints out the result of raising 2 to the 3rd power.**
+
+```{r}
+
+Power <- function(...) {
+  print(2^3)
+}
+
+Power()
+
+```
+
+**(b) Create a new function, Power2(), that allows you to pass any two numbers, x and a, and prints out the value of x^a.**
+
+```{r}
+Power2 <- function(x, a) {
+  print(x^a)
+}
+
+Power2(x = 3, a = 8)
+```
+
+**(c) Using the Power2() function that you just wrote, compute 10^3, 8^17, and 131^3.**
+
+```{r}
+Power2(10, 3)
+Power2(8, 17)
+Power2(131, 3)
+```
+
+
+**(d) Now create a new function, Power3(), that actually returns the result x^a as an R object, rather than simply printing it to the screen.**
+
+```{r}
+Power3 <- function(x, a) {
+  result <- x^a
+  return(result)
+}
+
+Power3(x = 2, a = 5)
+```
+
+
+**(e) Now using the Power3() function, create a plot of f (x)=x^2.**
+
+```{r}
+x <-  1:10
+plot(x, Power3(x, 2),  
+     log="xy", ylab="Log of y = x^2", xlab="Log of x", 
+     main="Log of x^2 versus Log of x", bty = "n")
+```
+
+
+**(f) Create a function, PlotPower(), that allows you to create a plot of x against x^a for a fixed a and for a range of values of x.**
+
+
+```{r}
+PlotPower <-  function(x, a) {
+  plot(x, Power3(x, a), bty = "n")
+}
+PlotPower(1:10, 3)
+```
+
+
+## Session Info
+
+```{r}
+sessionInfo()
+```
+
