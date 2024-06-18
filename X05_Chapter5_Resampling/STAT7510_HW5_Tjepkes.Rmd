@@ -1,0 +1,417 @@
+---
+title: "STAT 7510 - Textbook HW5"
+author: "Benjamin Tjepkes"
+date: "2024-06-18"
+output:
+  word_document:
+    toc: TRUE    
+    reference_docx: "C:/Users/btjep/OneDrive/A_School/Mizzou/Coursework/STAT_7510 - Applied Statistical Models I/X00_Logistics/custom_docx_template.docx"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Instructions
+
+From the course textbook, *An Introduction to Statistical Learning with Applications in R Second Edition*, Chapter 5, Problems 2, 5, 7, and 9.
+
+## Problem 2
+
+**We will now derive the probability that a given observation is part of a bootstrap sample. Suppose that we obtain a bootstrap sample from a set of n observations.**
+
+**(a) What is the probability that the first bootstrap observation is not the jth observation from the original sample? Justify your answer.**
+
+$1 − (1/n)$, where $n$ is the total number of observations in the original sample.
+
+**(b) What is the probability that the second bootstrap observation is not the jth observation from the original sample?**
+
+$1 − (1/n)$, because observations are drawn with replacement the probability is the same as above.
+
+**(c) Argue that the probability that the jth observation is not in the bootstrap sample is $(1 − 1/n)^n$.**
+
+Since bootstrap is sampling with replacement, each draw has the same probability given by $1/n$, so not being part of the jth observations gives us $1 − (1/n)$ ... $1 − (1/n)$. 
+
+**(d) When n =5, what is the probability that the jth observation is in the bootstrap sample?**
+
+```{r}
+cat(((1 - (1 - (1/5))^5)*100),"%")
+```
+
+**(e) When n = 100, what is the probability that the jth observation is in the bootstrap sample?**
+
+```{r}
+cat(((1 - (1 - (1/100))^100)*100),"%")
+```
+
+**(f) When n = 10, 000, what is the probability that the jth observation is in the bootstrap sample?**
+
+```{r}
+cat(((1 - (1 - (1/10000))^10000)*100),"%")
+```
+
+**(g) Create a plot that displays, for each integer value of n from 1 to 100, 000, the probability that the jth observation is in the bootstrap sample. Comment on what you observe.**
+
+```{r}
+x <- 1:100000
+plot(x,
+     1 - (1 - 1/x)^x)
+```
+
+The plot levels off around a certain probability.
+
+**(h) We will now investigate numerically the probability that a bootstrap sample of size n = 100 contains the jth observation. Here j =4. We repeatedly create bootstrap samples, and each time we record whether or not the fourth observation is contained in the bootstrap sample. Comment on the results obtained.**
+
+```{r}
+# initialize list
+tally <- list()
+
+# sample 100 times, recording how many times 4 occurs, output is a LOGICAL
+for (i in 1:10000) {
+  tally[i] <- sum(sample(1:100, rep = TRUE) == 4) > 0
+}
+
+# grab the probability from the list of logicals
+mean(unlist(tally))
+
+```
+
+The probability is consistently around 63%.
+
+## Problem 5
+
+**(a) Fit a logistic regression model that uses income and balance to predict default.**
+
+```{r}
+Default <- ISLR2::Default
+
+set.seed(1)
+
+default_glm.fit <- glm(default ~ income + balance,
+                       data = Default,
+                       family = "binomial")
+
+summary(default_glm.fit)
+```
+
+
+**(b) Using the validation set approach, estimate the test error of this model.**
+
+```{r}
+# Split the sample set into a training set and a validation set.
+default_train <- sample(dim(Default)[1], dim(Default)[1]/2)
+
+# Fit a multiple logistic regression model using only the training observations.
+default_train_fit <- glm(default ~ income + balance,
+                       data = Default,
+                       family = "binomial",
+                       subset = default_train)
+
+# Obtain a prediction of default status for each individual
+# Initialize the object with all NOs
+default_train_pred = rep("No", length(default_train))
+# Get prediction probabilities
+default_train_probs = predict(default_train_fit,
+                              Default[-default_train, ],
+                              type = "response")
+# Classify with threshold of 50%
+default_train_pred[default_train_probs > 0.5] = "Yes"
+
+# Compute the validation set error
+mean(default_train_pred != Default[-default_train, ]$default)
+```
+
+
+**(c) Repeat the process in (b) three times, using three different splits of the observations into a training set and a validation set. Comment on the results obtained.**
+
+```{r}
+# Repeat 1
+set.seed(5)
+
+  # Split the sample set into a training set and a validation set.
+  default_train <- sample(dim(Default)[1], dim(Default)[1]/2)
+  
+  # Fit a multiple logistic regression model using only the training observations.
+  default_train_fit <- glm(default ~ income + balance,
+                         data = Default,
+                         family = "binomial",
+                         subset = default_train)
+  
+  # Obtain a prediction of default status for each individual
+  # Initialize the object with all NOs
+  default_train_pred = rep("No", length(default_train))
+  # Get prediction probabilities
+  default_train_probs = predict(default_train_fit,
+                                Default[-default_train, ],
+                                type = "response")
+  # Classify with threshold of 50%
+  default_train_pred[default_train_probs > 0.5] = "Yes"
+  
+  # Compute the validation set error
+  mean(default_train_pred != Default[-default_train, ]$default)
+```
+
+```{r}
+# Repeat 2
+set.seed(10)
+
+  # Split the sample set into a training set and a validation set.
+  default_train <- sample(dim(Default)[1], dim(Default)[1]/2)
+  
+  # Fit a multiple logistic regression model using only the training observations.
+  default_train_fit <- glm(default ~ income + balance,
+                         data = Default,
+                         family = "binomial",
+                         subset = default_train)
+  
+  # Obtain a prediction of default status for each individual
+  # Initialize the object with all NOs
+  default_train_pred = rep("No", length(default_train))
+  # Get prediction probabilities
+  default_train_probs = predict(default_train_fit,
+                                Default[-default_train, ],
+                                type = "response")
+  # Classify with threshold of 50%
+  default_train_pred[default_train_probs > 0.5] = "Yes"
+  
+  # Compute the validation set error
+  mean(default_train_pred != Default[-default_train, ]$default)
+```
+
+
+```{r}
+# Repeat 3
+set.seed(20)
+
+  # Split the sample set into a training set and a validation set.
+  default_train <- sample(dim(Default)[1], dim(Default)[1]/2)
+  
+  # Fit a multiple logistic regression model using only the training observations.
+  default_train_fit <- glm(default ~ income + balance,
+                         data = Default,
+                         family = "binomial",
+                         subset = default_train)
+  
+  # Obtain a prediction of default status for each individual
+  # Initialize the object with all NOs
+  default_train_pred = rep("No", length(default_train))
+  # Get prediction probabilities
+  default_train_probs = predict(default_train_fit,
+                                Default[-default_train, ],
+                                type = "response")
+  # Classify with threshold of 50%
+  default_train_pred[default_train_probs > 0.5] = "Yes"
+  
+  # Compute the validation set error
+  mean(default_train_pred != Default[-default_train, ]$default)
+```
+
+The test error estimates are different depending on how the hold out is sampled, but is roughly around 2.8%.
+
+**(d) Now consider a logistic regression model that predicts the probability of default using income, balance, and a dummy variable for student. Estimate the test error for this model using the validation set approach. Comment on whether or not including a dummy variable for student leads to a reduction in the test error rate.**
+
+```{r}
+# Split the sample set into a training set and a validation set.
+default_train <- sample(dim(Default)[1], dim(Default)[1]/2)
+
+# Fit a multiple logistic regression model using only the training observations.
+default_train_fit <- glm(default ~ income + balance + student,
+                       data = Default,
+                       family = "binomial",
+                       subset = default_train)
+
+# Obtain a prediction of default status for each individual
+# Initialize the object with all NOs
+default_train_pred = rep("No", length(default_train))
+# Get prediction probabilities
+default_train_probs = predict(default_train_fit,
+                              Default[-default_train, ],
+                              type = "response")
+# Classify with threshold of 50%
+default_train_pred[default_train_probs > 0.5] = "Yes"
+
+# Compute the validation set error
+mean(default_train_pred != Default[-default_train, ]$default)
+```
+
+It does not appear that including the dummy variable for student status reduces the test error rate for this sample.
+
+## Problem 7
+
+**(a) Fit a logistic regression model that predicts Direction using Lag1 and Lag2.**
+
+```{r}
+Weekly <- ISLR2::Weekly
+
+set.seed(1)
+
+weekly_glm.fit <- glm(Direction ~ Lag1 + Lag2,
+                       data = Weekly,
+                       family = "binomial")
+
+summary(weekly_glm.fit)
+```
+
+
+**(b) Fit a logistic regression model that predicts Direction using Lag1 and Lag2 using all but the first observation.**
+
+```{r}
+weekly_glm.fit <- glm(Direction ~ Lag1 + Lag2,
+                       data = Weekly[-1, ],
+                       family = "binomial")
+
+summary(weekly_glm.fit)
+```
+
+
+**(c) Use the model from (b) to predict the direction of the first observation. You can do this by predicting that the first observation will go up if P (Direction = "Up"|Lag1, Lag2) > 0.5. Was this observation correctly classified?**
+
+```{r}
+(weekly_glm.predFirst <- predict.glm(weekly_glm.fit,
+                                    Weekly[1, ],
+                                    type = "response") > 0.5)
+
+Weekly[1, "Direction"]
+
+```
+
+No, this was not classified correctly. The predicted class was Up and the true class was DOWN.
+
+
+**(d) Write a for loop from i =1 to i = n, where n is the number of observations in the data set, that performs each of the following steps: i. Fit a logistic regression model using all but the ith observation to predict Direction using Lag1 and Lag2. ii. Compute the posterior probability of the market moving up for the ith observation. iii. Use the posterior probability for the ith observation in order to predict whether or not the market moves up. iv. Determine whether or not an error was made in predicting the direction for the ith observation. If an error was made, then indicate this as a 1, and otherwise indicate it as a 0.**
+
+```{r}
+# Initialize vector for errors, fill with zeros
+error_binary <- rep(0, nrow(Weekly))
+
+# Interate over i-th values in Weekly
+for (i in 1:nrow(Weekly)) {
+  # fit GLM with each i-th obs removed
+  weekly_glm.fit <- glm(Direction ~ Lag1 + Lag2,
+                        data = Weekly[-i, ],
+                        family = "binomial")
+  # predict i-th obs, assigning TRUE if over 0.5
+  weekly_glm.pred <- predict.glm(weekly_glm.fit,
+                                 newdata = Weekly[i, ],
+                                 type = "response") > 0.5
+  # code binary for each true i-th obs
+  weekly_true <- Weekly[i, "Direction"] == "Up"
+  # assess whether predicted and true classifications match
+  error_binary[i] <- ifelse(weekly_glm.pred != weekly_true, 1, 0)
+}
+
+# Counting all errors from error vector
+sum(error_binary)
+
+```
+
+There were 490 classification errors in this sample.
+
+**(e) Take the average of the n numbers obtained in (d)iv in order to obtain the LOOCV estimate for the test error. Comment on the results.**
+
+```{r}
+mean(error_binary)
+```
+
+With the 490 misclassifications, the estimate of the LOOCV test error is ~ 0.44995.
+
+
+## Problem 9
+
+**(a) Based on this data set, provide an estimate for the population mean of medv. Call this estimate μ.**
+
+```{r}
+Boston <- ISLR2::Boston
+
+(mu <- mean(Boston$medv))
+```
+
+**(b) Provide an estimate of the standard error of ˆ μ. Interpret this result.**
+
+```{r}
+
+(se <- sd(Boston$medv) / sqrt(nrow(Boston)))
+
+```
+
+This value, `r se`, represents the average amount that mu-hat differs from the actual value of mu.
+
+**(c) Now estimate the standard error of ˆ μ using the bootstrap. How does this compare to your answer from (b)?**
+
+```{r}
+set.seed(1)
+
+boot.fn <- function(data, index) {
+    mu <- mean(data[index])
+    return (mu)
+}
+
+(boot_se <- boot::boot(Boston$medv, boot.fn, 1000))
+```
+
+The estimates of mu are relatively similar.
+
+**(d) Based on your bootstrap estimate from (c), provide a 95 % confidence interval for the mean of medv. Compare it to the results obtained using t.test(Boston$medv).**
+
+```{r}
+t.test(Boston$medv)
+
+```
+
+```{r}
+c(boot_se$t0 - 2 * 0.4106622, boot_se$t0 + 2 * 0.4106622)
+```
+
+The 95% CI about the estimate of mu is relatively similar between the t.test and bootstrap methods.
+
+**(e) Based on this data set, provide an estimate, μmed, for the median value of medv in the population.**
+
+```{r}
+median(Boston$medv)
+```
+
+
+**(f) We now would like to estimate the standard error of ˆ μmed. Unfortunately, there is no simple formula for computing the standard error of the median. Instead, estimate the standard error of the median using the bootstrap. Comment on your findings.**
+
+```{r}
+# Set seed
+set.seed(1)
+
+# Setup boot function for the median
+boot.fn = function(data, index) return(median(data[index]))
+
+# Use bootstrap function w/1000 replicates
+boot::boot(Boston$medv,
+           boot.fn,
+           1000)
+```
+
+
+**(g) Based on this data set, provide an estimate for the tenth percentile of medv in Boston census tracts.**
+
+```{r}
+(mu_hat_10perc <- quantile(Boston$medv, c(0.1)))
+```
+
+
+**(h) Use the bootstrap to estimate the standard error of μ0.1. Comment on your findings.**
+
+
+```{r}
+set.seed(1)
+
+boot.fn = function(data, index) return(quantile(data[index], c(0.1)))
+
+boot::boot(Boston$medv,
+           boot.fn,
+           1000)
+```
+
+The estimated 10th percentile of the sample is 12.75, with an estimated SE around ~0.4767.
+
+## Session Info
+
+```{r}
+sessionInfo()
+```
+
