@@ -1,0 +1,262 @@
+---
+title: "STAT 7510 - Exam 1 Take Home"
+author: "Benjamin Tjepkes"
+date: "2024-06-26"
+output:
+  pdf_document:
+    toc: yes
+    toc_depth: '3'
+  word_document:
+    toc: yes
+    reference_docx: "C:/Users/btjep/OneDrive/A_School/Mizzou/Coursework/STAT_7510
+      - Applied Statistical Models I/X00_Logistics/custom_docx_template.docx"
+  html_document:
+    toc: yes
+    toc_float: yes
+    toc_collapsed: yes
+    toc_depth: 3
+    number_sections: no
+    number_offset: 1
+    theme: lumen
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r}
+# Read in data source
+SS2024E1 <- read.csv("./SS2024E1.csv", header = TRUE)
+# Plot observations
+plot(SS2024E1, main = "SS2024E1 Dataset")
+```
+
+
+## Question 1 - Training/Validation
+
+```{r}
+# Set seed for reproducibility
+set.seed(1)
+# Initialize index for training/test split
+train.index <- sample(1:nrow(SS2024E1), 0.5*nrow(SS2024E1))
+# Subset training set
+SS2024E1.train <- SS2024E1[train.index,]
+# Subset testing set
+SS2024E1.test <- SS2024E1[-train.index,]
+```
+
+
+
+```{r}
+# Create variable for error values
+lm.errors <- rep(0, 10)
+# Iterate over data to fit models of 1:10 polynomials
+for (d in 1:10) {
+  lm.fit <- glm(y ~ poly(x, d), data = SS2024E1.train)
+  assign(paste0("lm.fit",d), lm.fit)
+  lm.predit <- predict(lm.fit, newdata = SS2024E1.test)
+  lm.errors[d] <- mean((SS2024E1.test$y - lm.predit)^2)
+}
+# Print/plot errors
+data.frame(poly = 1:10, lm.errors)
+plot(lm.errors, type = "b", col="blue", lwd=3,
+     xlab="Polynomial Order", ylab="Test MSE",
+     main = "Training/Validation Set Approach")
+```
+
+A. The `r which.min(lm.errors)`th polynomial has the lowest test MSE of `r min(lm.errors)`.
+
+B. I would select the 5th polynomial as the final model in this case because it is the lowest order polynomial (simplest) after the steep drop-off point in test MSE.
+
+```{r, eval=FALSE, echo=FALSE}
+plot(SS2024E1)
+lines(lm.predit ~ SS2024E1.test$x, type = "p", col="red", lwd=2)
+summary(lm.fit5)
+```
+
+
+## Question 2 - LOOCV
+
+```{r}
+# Create variable for error values
+loocv.errors <- rep(0, 10)
+
+# Iterate over data to fit models of 1:10 polynomials
+for (d in 1:10) {
+  lm.fit <- glm(y ~ poly(x, d), data = SS2024E1) # using full dataset b/c cross-validation
+  assign(paste0("lm.fit",d), lm.fit)
+  loocv.errors[d] <- boot::cv.glm(SS2024E1, lm.fit)$delta[1]
+}
+```
+
+```{r}
+# Print/plot errors
+data.frame(poly = 1:10, loocv.errors)
+plot(loocv.errors, type = "b", col="red", lwd=3,
+     xlab="Polynomial Order", ylab="Test MSE", main = "LOOCV Approach")
+```
+
+A. The `r which.min(loocv.errors)`th polynomial has the lowest test MSE of `r min(loocv.errors)`.
+
+B. I would select the 5th polynomial as the final model in this case because it is the lowest order polynomial (simplest) after the steep drop-off point in test MSE. This is a similar outcome to my least squares result.
+
+
+## Question 3 - 10-fold CV
+
+```{r}
+# Create variable for error values
+cv10.errors <- rep(0, 10)
+
+# Iterate over data to fit models of 1:10 polynomials
+for (d in 1:10) {
+  lm.fit <- glm(y ~ poly(x, d), data = SS2024E1) # using full dataset b/c cross-validation
+  assign(paste0("lm.fit",d), lm.fit)
+  cv10.errors[d] <- boot::cv.glm(SS2024E1, lm.fit, K = 10)$delta[1]
+}
+```
+
+
+```{r}
+# Print/plot errors
+data.frame(poly = 1:10, cv10.errors)
+plot(cv10.errors, type = "b", col="purple", lwd=3,
+     xlab="Polynomial Order", ylab="Test MSE", main = "10-fold CV Approach")
+```
+
+A. The `r which.min(cv10.errors)`th polynomial has the lowest test MSE of `r min(cv10.errors)`.
+
+B. I would select the 5th polynomial as the final model in this case because it is the lowest order polynomial (simplest) after the steep drop-off point in test MSE. This is a similar outcome to my least squares and LOOCV results.
+
+
+## Question 4 - Bootstrap
+
+
+```{r}
+
+# Create variable for error values
+bootstrap.errors <- rep(0, 10)
+
+# Iterate over data to fit models of 1:10 polynomials
+for (d in 1:10) {
+
+  boot.fn <- function(data, index) {
+    # Fit the model using the bootstrap sample
+    boot.fit <- glm(y ~ poly(x, d), data = data, subset = index)
+    
+    # Predict using the model on the test set
+    test_data <- data[-index, ]
+    boot.predict <- predict(boot.fit, newdata = test_data)
+    
+    # Calculate the mean squared error
+    mse <- mean((test_data$y - boot.predict)^2)
+    return(mse)
+  }
+  
+  set.seed(1)
+  boot.out <- boot::boot(SS2024E1, boot.fn, 1000)
+
+  bootstrap.errors[d] <- mean(boot.out$t) # mean mean? SE
+}
+
+```
+
+```{r}
+# Print/plot errors
+data.frame(poly = 1:10, bootstrap.errors)
+plot(bootstrap.errors, type = "b", col="brown", lwd=3,
+     xlab="Polynomial Order", ylab="Test MSE", main = "Bootstrap Approach")
+```
+
+(a) The `r which.min(bootstrap.errors)`th polynomial has the lowest test MSE of `r min(bootstrap.errors)`.
+
+(b) I would select the 5th polynomial as the final model in this case because it is the lowest order polynomial (simplest) after the steep drop-off point in test MSE. This is a similar outcome to my previous results from the least squares and CV approaches.
+
+
+## Question 5 - Best Subsets Regression
+
+```{r}
+library(leaps)
+
+regfit.full <- regsubsets(y ~ x + I(x^2) + I(x^3) + I(x^4) + I(x^5) + I(x^6) + I(x^7) + I(x^8) + I(x^9) + I(x^10),
+                          data = SS2024E1,
+                          nvmax = 10)
+
+(reg.summary <- summary(regfit.full))
+
+```
+
+(a)
+
+```{r}
+plot(reg.summary$adjr2, xlab = "# Variables",
+    ylab = "Adjusted R-Squared", type = "l", main = "Adjusted R-Squared")
+points(which.max(reg.summary$adjr2),
+       reg.summary$adjr2[which.max(reg.summary$adjr2)],
+       col = "blue", pch = 20, cex = 2)
+abline(v = which.max(reg.summary$adjr2), col = "red", lty = 2)
+```
+
+```{r}
+plot(reg.summary$cp, xlab = "# Variables",
+    ylab = "Cp", type = "l", main = "Mallow's Cp")
+points(which.min(reg.summary$cp),
+       reg.summary$cp[which.min(reg.summary$cp)],
+       col = "blue", pch = 20, cex = 2)
+abline(v = which.min(reg.summary$cp), col = "red", lty = 2)
+```
+
+```{r}
+plot(reg.summary$bic, xlab = "# Variables",
+    ylab = "BIC", type = "l", main = "BIC")
+points(which.min(reg.summary$bic),
+       reg.summary$bic[which.min(reg.summary$bic)],
+       col = "blue", pch = 20, cex = 2)
+abline(v = which.min(reg.summary$bic), col = "red", lty = 2)
+```
+
+(b) From this approach, the Adjusted R-Squared suggests `r which.max(reg.summary$adjr2)` terms, the Mallow's Cp suggests `r which.min(reg.summary$cp)`terms, and BIC suggests `r which.min(reg.summary$bic)` terms. The adjusted R-squared for 4 terms is very close to that of 6 terms, so if we select the most parsimonious model it would be 4 terms according to this method.
+
+
+(c) The coefficients for the suggested 4-term model are:
+
+```{r}
+coef(regfit.full, 4)
+```
+
+
+
+## Question 6 - Final Model
+
+Based on the above information, this is the model that I believe generated the example data:
+
+$$
+y = 1.9009873 + 4.0709787x + 0.5233622x^2 - 5.0375246x^3 + 0.7032422x^5
+$$
+
+```{r}
+# Initialize function
+polynomial_function <- function(x) {
+  1.9009873 + 4.0709787 * x + 0.5233622 * x^2 - 5.0375246 * x^3 + 0.7032422 * x^5
+}
+
+# Generate x values -4 to 4
+x_values <- seq(-4, 4, by = 0.1)
+
+# Calculate y values with function
+y_values <- polynomial_function(x_values)
+
+# Plot my function with the provided data
+plot(SS2024E1, col = "red", cex = 3, main = "Final Modeled Data Function", xlab = "x", ylab = "y")
+points(x_values, y_values, type = "l", col = "blue", lwd = 2)
+legend("topleft", legend = c("Estimated Function", "SS2024E1 Data"), 
+       col = c("blue", "red"), lwd = 2)
+```
+
+
+## Session Info
+
+```{r}
+sessionInfo()
+```
+
