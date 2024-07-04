@@ -1,0 +1,288 @@
+---
+title: "STAT 7510 - Textbook HW7"
+author: "Benjamin Tjepkes"
+date: "2024-07-03"
+output:
+  html_document:
+    toc: true
+    toc_depth: 2
+    df_print: paged
+  word_document:
+    toc: true
+    reference_docx: "C:/Users/btjep/OneDrive/A_School/Mizzou/Coursework/STAT_7510
+      - Applied Statistical Models I/X00_Logistics/custom_docx_template.docx"
+  pdf_document:
+    toc: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE)
+```
+
+## Instructions
+
+From the course textbook, An Introduction to Statistical Learning with Applications in R Second Edition, **Chapter 7, Problems 6, 9, and 10.**
+
+## Problem 6
+
+### 6.A
+
+**Perform polynomial regression to predict wage using age. Use cross-validation to select the optimal degree d for the polynomial. What degree was chosen, and how does this compare to the results of hypothesis testing using ANOVA? Make a plot of the resulting polynomial fit to the data.**
+
+```{r}
+Wage <- ISLR2::Wage
+degrees <- NULL
+set.seed(1)
+for (i in 1:10) {
+  lm.fit <- glm(wage ~ poly(age, i), data = Wage)
+  degrees[i] <- boot::cv.glm(Wage, lm.fit, K=5)$delta[2]
+}
+plot(1:10, degrees, type = "l", col = "blue", main = "Poly Selection w/ CV", ylab="Error")
+```
+
+```{r}
+for (i in 1:10) {
+  assign(paste0("lm.fit.", i), lm(wage ~ poly(age, i), data = Wage))
+}
+anova(lm.fit.1, lm.fit.2, lm.fit.3, lm.fit.4, lm.fit.5, lm.fit.6, lm.fit.7, lm.fit.8, lm.fit.9, lm.fit.10)
+```
+
+
+The ANOVA hypothesis test indicates significance up through a 3rd order polynomial.
+
+```{r}
+x_scale <- seq(from = range(Wage$age)[1],
+               to = range(Wage$age)[2])
+lm.fit <- glm(wage ~ poly(age, 3), data = Wage)
+lm.predict <- predict(lm.fit, data.frame(age = x_scale))
+plot(wage~age, data=Wage, col="darkgrey", main = "3rd-Order Polynomial Fit")
+lines(x_scale, lm.predict, col="purple", lwd=2)
+```
+
+
+### 6.B
+
+**Fit a step function to predict wage using age, and perform cross-validation to choose the optimal number of cuts. Make a plot of the fit obtained.**
+
+```{r}
+# Initialize vector for CV
+cv.errors <- NULL
+# Starting at 2, up through 10 cuts, fit step function
+for (i in 2:10) {
+  Wage$age.cut = cut(Wage$age, i)
+  lm.fit = glm(wage ~ age.cut, data = Wage)
+  cv.errors[i-1] = boot::cv.glm(Wage, lm.fit, K=10)$delta[2]
+}
+plot(2:10, cv.errors, type = "l", col = "blue", main = "Best Cuts w/ CV")
+abline(v = 8, col = "red")
+```
+
+```{r}
+lm.fit <- glm(wage ~ cut(age, 8), data = Wage)
+lm.predict <- predict(lm.fit, data.frame(age = x_scale))
+plot(wage~age, data=Wage, col="darkgrey", main = "Constant Step Function w/ 8 Cuts")
+lines(x_scale, lm.predict, col="purple", lwd=2)
+```
+
+
+## Problem 9
+
+### 9.A
+
+**Use the poly() function to fit a cubic polynomial regression to predict nox using dis. Report the regression output, and plot the resulting data and polynomial fits.**
+
+```{r}
+Boston <- ISLR2::Boston
+poly.fit <- glm(nox ~ poly(dis, 3), data = Boston)
+summary(poly.fit)
+```
+
+```{r}
+x_scale <- seq(from = range(Boston$dis)[1],
+               to = range(Boston$dis)[2],
+               by = 0.2)
+poly.pred = predict(poly.fit, data.frame(dis = x_scale))
+plot(Boston$dis, Boston$nox, col = "darkgrey", main = "Cubic Poly")
+lines(x_scale, poly.pred, col="purple", lwd=2)
+```
+
+
+### 9.B
+
+**(b) Plot the polynomial fits for a range of different polynomial degrees (say, from 1 to 10), and report the associated residual sum of squares.**
+
+```{r}
+# Initialize vector for RSS errors
+poly.errors <- NULL
+
+for (i in 1:10) {
+  poly.fit <- glm(nox ~ poly(dis, i), data = Boston)
+  poly.pred = predict(poly.fit, data.frame(dis = x_scale))
+  poly.errors[i] <- sum(poly.fit$residuals^2)
+  plot(Boston$dis, Boston$nox, col = "darkgrey", main = paste0("Poly ", i))
+  lines(x_scale, poly.pred, lwd=2)
+}
+
+data.frame(Poly = 1:10, RSS = poly.errors)
+
+```
+
+
+### 9.C
+
+**(c) Perform cross-validation or another approach to select the optimal degree for the polynomial, and explain your results.**
+
+```{r}
+poly.errors <- NULL
+set.seed(1)
+for (i in 1:10) {
+  poly.fit <- glm(nox ~ poly(dis, i), data = Boston)
+  poly.errors[i] <- boot::cv.glm(Boston, poly.fit, K = 10)$delta[2]
+}
+
+plot(1:10, poly.errors, xlab = "Degree", ylab = "Error", type = "l", main = "Poly Selection w/ CV")
+
+```
+
+The test error from CV is minimized at `r which.min(poly.errors)`, but is very similar for polynomial values 2 through 5.
+
+### 9.D
+
+**(d) Use the bs() function to fit a regression spline to predict nox using dis. Report the output for the fit using four degrees of freedom. How did you choose the knots? Plot the resulting fit.**
+
+```{r}
+library(splines)
+spline.fit <- glm(nox ~ bs(dis, df = 4), data = Boston)
+summary(spline.fit)
+spline.predict <- predict(spline.fit, data.frame(dis = x_scale))
+plot(Boston$dis, Boston$nox, col = "darkgrey", main = "Splines")
+lines(x_scale, spline.predict, col="purple", lwd=2)
+n.knots <- attr(bs(Boston$dis, df = 4), "knots")
+abline(v = n.knots, lty=3, col = "red")
+```
+
+With $df=4$ and a cubic spline, R will choose the value of a single knot at `r n.knots`.
+
+### 9.E
+
+**(e) Now fit a regression spline for a range of degrees of freedom, and plot the resulting fits and report the resulting RSS. Describe the results obtained.**
+
+```{r}
+spline.errors <- NULL
+
+for (i in 4:15) {
+  spline.fit <- glm(nox ~ bs(dis, df = i), data = Boston)
+  spline.predict <- predict(spline.fit, data.frame(dis = x_scale))
+  spline.errors[i-3] <- sum(spline.fit$residuals^2)
+  plot(Boston$dis, Boston$nox, col = "darkgrey", main = paste0("Spline df=", i))
+  lines(x_scale, spline.predict, lwd=2)
+}
+data.frame(Poly = 4:15, RSS = spline.errors)
+plot(spline.errors, type = "l", main = "Splines - Training RSS")
+```
+
+From visually inspecting the plots, anything $df > 4$ seems to overfit the data and produce wiggly tails at extreme values.
+
+### 9.F
+
+**(f) Perform cross-validation or another approach in order to select the best degrees of freedom for a regression spline on this data. Describe your results.**
+
+```{r}
+spline.errors <- NULL
+set.seed(1)
+for (i in 4:15) {
+  spline.fit <- glm(nox ~ bs(dis, df = i), data = Boston)
+  spline.errors[i] <- boot::cv.glm(Boston, spline.fit, K = 10)$delta[2]
+}
+
+plot(4:15, spline.errors[-(1:3)], xlab = "DF",
+     ylab = "Error", type = "l", main = "Spline DF Selection w/ CV")
+```
+
+After performing 10-fold cross validation, `r which.min(spline.errors)` df had the lowest error, though 5 through 7 degrees of freedom had similar error values.
+
+## Problem 10
+
+**(a) Split the data into a training set and a test set. Using out-of-state tuition as the response and the other variables as the predictors, perform forward stepwise selection on the training set in order to identify a satisfactory model that uses just a subset of the predictors.**
+
+```{r}
+# Create data set in env
+College <- ISLR2::College
+# Establish training index of ~ 50%
+set.seed(1)
+train_index <- sample(nrow(College), nrow(College)/2)
+# Subset dataset with training index
+college.train <- College[train_index, ]
+college.test <- College[-train_index, ]
+# Forward stepwise regression
+model.fit <- leaps::regsubsets(Outstate ~ ., data = college.train, nvmax = 17, method = "forward")
+(model.summary <- summary(model.fit))
+```
+```{r}
+par(mfrow = c(1, 3))
+plot(model.summary$cp, xlab = "Number of Variables", ylab = "Cp", type = "l")
+min.cp = min(model.summary$cp)
+std.cp = sd(model.summary$cp)
+abline(h = min.cp + 0.2 * std.cp, col = "red", lty = 2)
+abline(h = min.cp - 0.2 * std.cp, col = "red", lty = 2)
+plot(model.summary$bic, xlab = "Number of Variables", ylab = "BIC", type = "l")
+min.bic = min(model.summary$bic)
+std.bic = sd(model.summary$bic)
+abline(h = min.bic + 0.2 * std.bic, col = "red", lty = 2)
+abline(h = min.bic - 0.2 * std.bic, col = "red", lty = 2)
+plot(model.summary$adjr2, xlab = "Number of Variables", ylab = "Adjusted R2", 
+    type = "l", ylim = c(0.4, 0.84))
+max.adjr2 = max(model.summary$adjr2)
+std.adjr2 = sd(model.summary$adjr2)
+# abline(h = max.adjr2 + 0.2 * std.adjr2, col = "red", lty = 2)
+abline(h = max.adjr2 - 0.2 * std.adjr2, col = "red", lty = 2)
+```
+
+```{r}
+coef(model.fit, id = 6)
+```
+
+
+**(b) Fit a GAM on the training data, using out-of-state tuition as the response and the features selected in the previous step as the predictors. Plot the results, and explain your findings.**
+
+```{r}
+library(gam)
+# Fit GAM with the 6-variable model
+gam.fit <- gam::gam(Outstate ~ Private + s(Room.Board, df = 2) + s(Terminal, df = 2) + s(perc.alumni, df = 2) + s(Expend, df = 2) + s(Grad.Rate, df = 2), data = College)
+# Plot the 6 fit plots
+par(mfrow = c(2, 3))
+plot(gam.fit, se = T, col = "red")
+```
+
+
+**(c) Evaluate the model obtained on the test set, and explain the results obtained.**
+
+```{r}
+gam.predict = predict(gam.fit, college.test)
+(gam.error = mean((college.test$Outstate - gam.predict)^2))
+AIC(gam.fit)
+
+gam.lm.fit <- gam::gam(Outstate ~ Private + Room.Board + Terminal + perc.alumni + Expend + Grad.Rate, data = College)
+
+gam.lm.predict = predict(gam.lm.fit, college.test)
+(gam.lm.error = mean((college.test$Outstate - gam.lm.predict)^2))
+AIC(gam.lm.fit)
+```
+
+When compared to the linear version of the same model specification, the non-linear GAM has a lower test MSE and lower AIC.
+
+**(d) For which variables, if any, is there evidence of a non-linear relationship with the response?**
+
+```{r}
+summary(gam.fit)
+```
+
+Based on the ANOVA for non-parametric effects, there appears to be evidence that Expend and Terminal have non-linear relationships with the response variable, with the Expend variable having the most significant relationship with the response.
+
+
+## Session Info
+
+```{r}
+sessionInfo()
+```
+
