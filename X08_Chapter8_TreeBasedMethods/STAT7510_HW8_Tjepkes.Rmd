@@ -1,0 +1,289 @@
+---
+title: "STAT 7510 - Textbook HW8"
+author: "Benjamin Tjepkes"
+date: "2024-07-09"
+output:
+  html_document:
+    toc: true
+    toc_depth: 2
+    df_print: paged
+  word_document:
+    toc: true
+    reference_docx: "C:/Users/btjep/OneDrive/A_School/Mizzou/Coursework/STAT_7510
+      - Applied Statistical Models I/X00_Logistics/custom_docx_template.docx"
+  pdf_document:
+    toc: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE)
+```
+
+## Instructions
+
+From the course textbook, An Introduction to Statistical Learning with Applications in R Second Edition, **Chapter 8, Problems 4, 5, 8, and 11**.
+
+## Problem 4
+
+### A
+
+**Sketch the tree corresponding to the partition of the predictor space illustrated in the left-hand panel of Figure 8.14. The numbers inside the boxes indicate the mean of Y within each region.**
+
+![](../X08_Chapter8_TreeBasedMethods/Screenshot 2024-07-06 142751.png)
+
+### B
+
+**Create a diagram similar to the left-hand panel of Figure 8.14, using the tree illustrated in the right-hand panel of the same figure. You should divide up the predictor space into the correct regions, and indicate the mean for each region.**
+
+```{r, echo=FALSE}
+
+plot(NA, NA, type = "n", xlim = c(-2, 2), ylim = c(-3, 3), xlab = "X_1", ylab = "X_2")
+
+lines(x = c(-2, 2), y = c(1, 1), , col = "red", lty = 3)
+
+lines(x = c(1, 1), y = c(-3, 1), col = "red", lty = 3)
+text(x = -0.5, y = -1, labels = c(-1.8))
+text(x = 1.5, y = -1, labels = c(0.63))
+
+lines(x = c(-2, 2), y = c(2, 2), , col = "red", lty = 3)
+text(x = 0, y = 2.5, labels = c(2.49))
+
+lines(x = c(0, 0), y = c(1, 2), col = "red", lty = 3)
+text(x = -1, y = 1.5, labels = c(-1.06))
+text(x = 1, y = 1.5, labels = c(0.21))
+```
+
+
+
+## Problem 5
+
+**In this example, what is the final classification under each of these two approaches?**
+
+```{r}
+# Initialize samples
+samples <- c(0.1, 0.15, 0.2, 0.2, 0.55, 0.6, 0.6, 0.65, 0.7, 0.75)
+# Find the proportion of samples over 0.5
+sum(samples > 0.5) / length(samples)
+# Find the arithmetic mean sample value
+mean(samples)
+```
+
+For the majority approach, the majority of samples (`r sum(samples > 0.5) / length(samples)`), are above the 0.5 threshold, so the classification would be red given the data.
+
+For the averaging approach, the mean is `r mean(samples)`, which would make the classification green because the probability it is red given the data is less than 0.5.
+
+## Problem 8
+
+### A
+
+**Split the data set into a training set and a test set.**
+
+```{r}
+# Load in dataset
+Carseats <- ISLR2::Carseats
+# Create training index of 50%
+set.seed(1)
+train_index <- sample(nrow(Carseats), nrow(Carseats)/2)
+# Subset dataset using index
+Carseats_train <- Carseats[train_index, ]
+Carseats_test <- Carseats[-train_index, ]
+```
+
+
+### B
+
+**Fit a regression tree to the training set. Plot the tree, and interpret the results. What test MSE do you obtain?**
+
+```{r}
+library(tree)
+# Fit regression tree model
+tree.fit <- tree::tree(Sales ~ ., data = Carseats_train)
+# Plot the fitted tree model
+plot(tree.fit)
+text(tree.fit, pretty = 0, cex = 0.5)
+# Predict values using fitted model
+tree.predict <- predict(tree.fit, newdata = Carseats_test)
+# Calculate test error in model
+tree.error.test <- mean((Carseats_test$Sales - tree.predict)^2)
+summary(tree.fit)
+```
+
+The resulting regression tree contains 18 terminal nodes and has a test MSE of `r tree.error.test`. ShelveLoc and Price seem to be important in the initial division nodes.
+
+### C
+
+**Use cross-validation in order to determine the optimal level of tree complexity. Does pruning the tree improve the test MSE?**
+
+```{r}
+set.seed(1)
+model.cv <- tree::cv.tree(tree.fit)
+plot(model.cv$size, model.cv$dev, type = "b")
+abline(v = 10, col = "red", lty = 3)
+```
+
+```{r}
+model.prune <- tree::prune.tree(tree.fit, best = 10)
+plot(model.prune)
+text(model.prune, pretty = 0, cex = 0.5)
+```
+
+```{r}
+tree.pruned.predict <- predict(model.prune, newdata = Carseats_test)
+# Calculate test error in model
+(tree.error.pruned <- mean((Carseats_test$Sales - tree.pruned.predict)^2))
+```
+
+The test MSE of the pruned regression tree was `r tree.error.pruned`, which was decreased very slightly from the un-pruned test MSE of `r tree.error.test`. The pruned regression tree had 10 terminal nodes compared to the original 18 in the un-pruned.
+
+### D
+
+**Use the bagging approach in order to analyze this data. What test MSE do you obtain? Use the importance() function to determine which variables are most important.**
+
+```{r}
+# Load in library
+library(randomForest)
+# Set seed for reproducible randomness
+set.seed(1)
+# Fit bagged regression tree using RandomForest
+model.bag.fit <- randomForest::randomForest(Sales ~ ., data = Carseats_train,
+                                            mtry = 10, importance = TRUE)
+# Predict with the test subset
+model.bag.predict <- predict(model.bag.fit, newdata = Carseats_test)
+# Calculate test error for bagged regression tree
+(model.bag.error <- mean((Carseats_test$Sales - model.bag.predict)^2))
+# Print out variable importance
+randomForest::importance(model.bag.fit)
+# Plot the importance values
+varImpPlot(model.bag.fit)
+```
+
+The bagged regression tree greatly reduced the test MSE to `r model.bag.error`. Using the `importance()` function, it looks like $Price$, $ShelveLoc$, and $CompPrice$ are the most important features in this model.
+
+### E
+
+**Use random forests to analyze this data. What test MSE do you obtain? Use the importance() function to determine which variables are most important. Describe the effect of m, the number of variables considered at each split, on the error rate obtained.**
+
+```{r}
+# Set seed for reproducible randomness
+set.seed(1)
+# Fit RF
+model.rf.fit <- randomForest::randomForest(Sales ~ ., data = Carseats_train, ntree = 500)
+# Predict with test subset
+model.rf.predict <- predict(model.rf.fit, newdata = Carseats_test)
+# Calculate test error for RF
+(model.rf.error <- mean((Carseats_test$Sales - model.rf.predict)^2))
+```
+
+
+```{r}
+importance(model.rf.fit)
+varImpPlot(model.rf.fit)
+```
+
+The test MSE for the Random Forest model is increased to `r model.rf.error` compared to the bagged regression tree approach, showing the impact of the $p/3$ value for *m* in the Random Forest model. $Price$, $ShelveLoc$, and $CompPrice$ are still the most important features in this model.
+
+### F
+
+**Now analyze the data using BART, and report your results.**
+
+```{r}
+# Load in required package
+library(BART)
+# Split columns b/t response and predictors
+y <- Carseats[, colnames(Carseats) == "Sales"]
+x <- Carseats[, colnames(Carseats) != "Sales"]
+# Create training sets
+y.train <- y[train_index]
+x.train <- x[train_index,]
+# Create test sets
+y.test <- y[-train_index]
+x.test <- x[-train_index,]
+# Fit BART model
+set.seed(1)
+model.bart.fit <- BART::gbart(x.train = x.train, y.train = y.train, x.test = x.test)
+# Get estimates
+bart.yhat <- model.bart.fit$yhat.test.mean
+# Calculate error
+(model.bart.error <- mean((y.test - bart.yhat)^2))
+```
+
+The BART model had the lowest test MSE, `r model.bart.error`,out of all the models tested.
+
+## Problem 11
+
+### A
+
+**Create a training set consisting of the first 1,000 observations, and a test set consisting of the remaining observations.**
+
+```{r}
+# Load in dataset
+Caravan <- ISLR2::Caravan
+# Create training subset
+Caravan.train <- Caravan[1:1000, ]
+# Create testing subset
+Caravan.test <- Caravan[-c(1:1000), ]
+```
+
+
+### B
+
+**Fit a boosting model to the training set with Purchase as the response and the other variables as predictors. Use 1,000 trees, and a shrinkage value of 0.01. Which predictors appear to be the most important?**
+
+```{r}
+# Load in package
+library(gbm)
+# Set reproducibility seed
+set.seed(1)
+# Convert factor to binary
+Caravan.train$Purchase <- ifelse(Caravan.train$Purchase == "Yes", 1, 0)
+Caravan.test$Purchase <- ifelse(Caravan.test$Purchase == "Yes", 1, 0)
+# Fit GBM | 1,000 trees | shrinkage value of 0.01 | "bernoulli" for classification
+gbm.train <- gbm(Purchase ~ ., data = Caravan.train, distribution = "bernoulli",
+                 n.trees = 1000, shrinkage = 0.01)
+head(summary(gbm.train))
+```
+
+$PPERSAUT$, $MKOOPKLA$, and $MOPLHOOG$ appear to be the most important features in this model.
+
+### C
+
+**Use the boosting model to predict the response on the test data. Predict that a person will make a purchase if the estimated probability of purchase is greater than 20%. Form a confusion matrix. What fraction of the people predicted to make a purchase do in fact make one? How does this compare with the results obtained from applying KNN or logistic regression to this data set?**
+
+```{r}
+# Predict using the testing set
+bgm.prob <- predict(gbm.train, newdata = Caravan.test, n.trees = 1000, type = "response")
+# Specify a binary response based on 20% probability
+bgm.predict <- ifelse(bgm.prob > 0.2, 1, 0)
+# Print out table of classifications
+table(Caravan.test$Purchase, bgm.predict)
+```
+
+```{r}
+# Calc the true classification for the boosted model
+(true_misclass_bgm <- 33 / (123+33))
+```
+
+```{r}
+# Fit a logistic regression model
+model.log.fit <- glm(Purchase ~ ., data = Caravan.train, family = "binomial")
+# Predict on the test set
+model.log.prob <- predict(model.log.fit, newdata = Caravan.test, type = "response")
+# Specify a binary response based on 20% probability
+model.log.predict <- ifelse(model.log.prob > 0.2, 1, 0)
+# Print out table of classifications
+table(Caravan.test$Purchase, model.log.predict)
+```
+
+```{r}
+# Calc the true classification for the GLM log regression model
+(true_misclass_log <- 58 / (58+350))
+```
+
+The boosting model showed that `r true_misclass_bgm * 100`% of people predicted to make a purchase actually did, which compares to the `r true_misclass_log*100`% result when predicted using the standard logisitic regression on the same training and test sets.
+
+## Session Info
+
+```{r}
+sessionInfo()
+```
+
