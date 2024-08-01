@@ -1,0 +1,136 @@
+---
+title: "STAT 7510 - Exam 2 Take Home - Question 3"
+author: "Benjamin Tjepkes"
+date: "2024-07-23"
+output:
+  html_document:
+    toc: yes
+    toc_float: yes
+    toc_collapsed: yes
+    toc_depth: 3
+    number_sections: no
+    number_offset: 1
+    theme: lumen
+    font_size: 16
+---
+
+<style type="text/css">
+  body{
+  font-size: 14pt;
+}
+
+  h2 {
+  font-size: 24pt;
+  color: #e7700d;
+}
+
+</style>
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r}
+# Load in PROTEIN data
+Y <- read.table(file = "./T15_7_PROTEIN.dat")
+
+# Rename columns
+names(Y) <- c("Country","RedMeat","WhiteMeat","Eggs","Milk","Fish", "Cereals","Starchy","Nuts","Fruit.Veg")
+
+# Specify row names
+row.names(Y) <- Y[ , "Country"]
+
+# View structure of data
+dplyr::glimpse(Y)
+```
+
+## A
+
+**Perform principal components analysis using the prcomp() function. Be sure to include scale=TRUE**
+
+```{r}
+# Subset Y to exclude country name
+Y_clean <- Y[, 2:10]
+
+# Perform PCA, scaling the variables
+pca.fit <- prcomp(Y_clean, scale = TRUE)
+```
+
+
+## B
+
+**Using the summary function, how many principal components should be used to account for at 85% of the original variance of the data. Big Note: This is how data reduction works! We are going from 9 variables down to whatever you are suggesting that we use.**
+
+```{r}
+# Print the summary of the fitted PCA
+summary(pca.fit)
+```
+
+Based on the Cumulative Proportion values above, we should use 4 PCs to account for 85.82% of the original variance of the data.
+
+
+## C
+
+**Is principal components analyses considered a supervised or unsupervised method? Explain**
+
+PCA is considered an unsupervised method because a response variable $Y$ is not involved and we are only using the relationships amongst the features or predictor variables.
+
+
+## D
+
+**Assume the principal components (PC) model is stored in ”pr.out”. The variable loadings are stored in component (pr.out\$rotation), which is called the rotation matrix. The PC score vectors are obtained by multiplying the original data by the rotation matrix and are stored in (pr.out$x). Create a scatter plot of the first two PC score vectors. Use the ”text” function to label each point with the country name. Are there any groupings with country in this plot?**
+
+```{r, fig.height=8}
+biplot(pca.fit, scale =0)
+```
+
+```{r, fig.height=8, fig.asp=1}
+# Scatter plot of the first two PCs
+plot(pca.fit$x[, 1], pca.fit$x[, 2], xlab = "PC1", ylab = "PC2", main = "PC1 vs. PC2 w/ Countries", pch = 19, col = "blue", xlim = c(-3,4), ylim = c(-2, 4.5))
+
+# Label each point with the country name
+text(pca.fit$x[, 1], pca.fit$x[, 2], labels = names(pca.fit$x[,1]), pos = 4, cex = 0.7)
+```
+
+Yes, there are a few country groupings observable in the above plot(s). The most notable is in the lower right and includes Rom, Yugo, Bulg, and Alban. The points in the left portion of the plot could either be grouped as a single cluster or perhaps two.
+
+## E
+
+**Graphically illustrating the results from a k-means analysis is an effective way to visualize the clustering of data points, typically done by plotting the data points in a scatter plot and coloring them according to their assigned clusters, which helps in understanding the structure and distribution of the data. One approach is to create a scatter plot of the first two PC score vectors and color the points based on the k-mean clustering results. Do this for k=3 and k=4 k-means clustering. Would you recommend k=3 or k=4?**
+
+```{r, fig.height=8, fig.asp=1}
+
+# Set seed for reproducible results
+set.seed(1)
+
+# Perform k-means, with k = 3
+km_pca_3 <- kmeans(pca.fit$x[, 1:2], centers = 3, nstart = 20)
+
+# Perform k-means, with k = 4
+km_pca_4 <- kmeans(pca.fit$x[, 1:2], centers = 4, nstart = 20)
+
+# Scatter plot of the first two PCs
+plot(pca.fit$x[, 1], pca.fit$x[, 2], xlab = "PC1", ylab = "PC2", main = "PC1 vs. PC2 w/ k=3",
+     pch = 19, col = km_pca_3$cluster, xlim = c(-3,4), ylim = c(-2, 4.5))
+
+# Label each point with the country name
+text(pca.fit$x[, 1], pca.fit$x[, 2], labels = names(pca.fit$x[,1]), pos = 4, cex = 0.7)
+
+# Scatter plot of the first two PCs
+plot(pca.fit$x[, 1], pca.fit$x[, 2], xlab = "PC1", ylab = "PC2", main = "PC1 vs. PC2 w/ k=4",
+     pch = 19, col = km_pca_4$cluster, xlim = c(-3,4), ylim = c(-2, 4.5))
+
+# Label each point with the country name
+text(pca.fit$x[, 1], pca.fit$x[, 2], labels = names(pca.fit$x[,1]), pos = 4, cex = 0.7)
+```
+
+I would suggest the $k=4$ clustering because I think the "Port" and "Spain" points are sufficiently separate from other groupings, especially when looking at the "Fruit.Veg" loading vector in the above biplot. Also, the lower right group is quite separate as well.
+
+
+## Session Info
+
+```{r}
+sessionInfo()
+```
+

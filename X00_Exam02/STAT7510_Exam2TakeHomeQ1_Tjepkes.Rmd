@@ -1,0 +1,184 @@
+---
+title: "STAT 7510 - Exam 2 Take Home - Question 1"
+author: "Benjamin Tjepkes"
+date: "2024-07-23"
+output:
+  html_document:
+    toc: yes
+    toc_float: yes
+    toc_collapsed: yes
+    toc_depth: 3
+    number_sections: no
+    number_offset: 1
+    theme: lumen
+    font_size: 16
+---
+
+<style type="text/css">
+  body{
+  font-size: 14pt;
+}
+
+  h2 {
+  font-size: 24pt;
+  color: #e7700d;
+}
+
+</style>
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r}
+# Read in FISH data
+Y <- read.table(file = "./T6_17_FISH.DAT")
+
+# Rename columns
+names(Y) <- c("method", "aroma", "flavor", "texture", "moisture")
+
+# Convert "method" to factor variable for classification
+Y[,"method"] <- factor(Y[ ,"method"])
+
+# Preview data
+dplyr::glimpse(Y)
+```
+
+
+## A
+
+**When reading the data set, why must we use "Y[,’method’] < − factor(Y[,’method’])"?**
+
+When using the `tree` package for classification, the response variable needs to be converted into a categorical field using the `factor()` function. This allows R to know that our response is qualitative with multiple unique levels that we will classify our data into using our model.
+
+## B
+
+**Fit a classification tree in order to predict Method using the four other variables from T6 17 FISH.DAT. What is the misclassification error rate?**
+
+```{r}
+# Import the tree library
+library(tree)
+
+# Fit the FISH data
+tree.fit <- tree::tree(method ~ ., data = Y)
+
+# Print summary of fitted classification model
+summary(tree.fit)
+```
+
+The training misclassification error rate is `r (9/36) * 100`%.
+
+
+```{r}
+# set seed for reproducible sample
+set.seed(1)
+
+# Create index to subset training/testing data
+train_index <- sample(1:nrow(Y), round(0.5*nrow(Y), digits = 0))
+
+# Subset FISH data
+Y_train <- Y[train_index, ]
+Y_test <- Y[-train_index, ]
+
+# Re-fit model with only training data
+tree.fit.train <- tree::tree(method ~ ., data = Y_train)
+
+# Predict classes from trained model
+tree.predict <- predict(tree.fit.train, newdata = Y_test, type = "class")
+
+# Print table of class determinations
+table(tree.predict, Y_test$method)
+
+# Calculate test misclassification rate
+mean(tree.predict != Y_test$method)
+```
+
+The testing misclassification error rate is `r mean(tree.predict != Y_test$method) * 100`%, with method 3 having the most misclassifications.
+
+## C
+
+**Plot and label the tree.**
+
+```{r}
+# Plot fitted classification tree
+plot(tree.fit.train)
+
+# Add labels to plot
+text(tree.fit.train, pretty = 0)
+```
+
+
+## D
+
+**Use cross validation (cv.tree) to find the optimal number of terminal nodes.**
+
+```{r}
+# Set seed for reproducible results
+set.seed(1)
+
+# Perform CV on the fitted model
+cv.fish <- cv.tree(tree.fit.train, FUN = prune.misclass)
+
+# Print output of CV
+cv.fish
+```
+
+
+## E
+
+**Create 2 plots with the error rate as a function of both size and k.**
+
+```{r}
+# Format 1 row, 2 columns
+par(mfrow = c(1, 2))
+
+# Plot Size vs. Error
+plot(cv.fish$size, cv.fish$dev, type="b")
+
+# Plot cost-complexity parameter (k) vs. Error
+plot(cv.fish$k, cv.fish$dev, type="b")
+```
+
+Training misclassification error is minimized with $size = 3$ and $k = 1$.
+
+## F
+
+**Apply the prune.misclass() function in order to prune the tree using part(d). Plot the tree.**
+
+```{r}
+# Prune the classification tree using k and size
+tree.prune <- tree::prune.misclass(tree = tree.fit, best = 3, k = 1)
+
+# Plot pruned classification tree
+plot(tree.prune)
+
+# Add labels to plot
+text(tree.prune, pretty = 0)
+```
+
+
+## G
+
+**How well does this pruned tree perform? You will apply the predict() function.**
+
+```{r}
+# Predict classes of test data
+pruned.predict <- predict(tree.prune, newdata = Y_test, type = "class")
+
+# Print table of class determinations
+table(pruned.predict, Y_test$method)
+
+# Calculate test misclassification rate
+mean(pruned.predict != Y_test$method)
+```
+
+Pruning the classification tree down to only 3 terminal nodes greatly reduces the test misclassification error rate. The test error rate is `r mean(pruned.predict != Y_test$method) * 100`% with large improvements to the classification of method 3.
+
+
+## Session Info
+
+```{r}
+sessionInfo()
+```
+

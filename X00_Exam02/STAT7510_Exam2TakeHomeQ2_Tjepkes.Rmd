@@ -1,0 +1,140 @@
+---
+title: "STAT 7510 - Exam 2 Take Home - Question 2"
+author: "Benjamin Tjepkes"
+date: "2024-07-23"
+output:
+  html_document:
+    toc: yes
+    toc_float: yes
+    toc_collapsed: yes
+    toc_depth: 3
+    number_sections: no
+    number_offset: 1
+    theme: lumen
+    font_size: 16
+---
+
+<style type="text/css">
+  body{
+  font-size: 14pt;
+}
+
+  h2 {
+  font-size: 24pt;
+  color: #e7700d;
+}
+
+</style>
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r}
+# Load in CITYCRIME data
+Y <- read.table(file = "./T15_1_CITYCRIME.dat")
+
+# Rename columns
+names(Y) <- c("City", "Murder", "Rape", "Robbery", "Assault", "Burglary", "Larceny", "AutoTheft")
+
+# Specify row names
+row.names(Y) <- Y[ , "City"]
+
+# View structure of data
+dplyr::glimpse(Y)
+```
+
+## A
+
+**Fit a Kmeans model to the data with k=4 and nstart=20**
+
+```{r}
+# All variables are crime rates per 100,000 population, so not scaled
+# Subset Y to exclude city name
+Y_clean <- Y[, 2:8]
+
+# Set seed for reproducibility
+set.seed(1)
+
+# Fit a k-means model
+km.fit <- kmeans(x = Y_clean, centers = 4, nstart = 20)
+
+# Print total within cluster sum of squares
+km.fit$tot.withinss
+```
+
+
+## B
+
+**Fit 3 Hierarchical Clustering models with method = ”complete”, method = ”average”, and method = ”single”.**
+
+```{r}
+# Perform H-Cluster with "complete"
+hc.complete <- hclust(d = dist(Y_clean), method = "complete")
+  
+# Perform H-Cluster with "average"
+hc.average <- hclust(d = dist(Y_clean), method = "average")
+
+# Perform H-Cluster with "single"
+hc.single <- hclust(d = dist(Y_clean), method = "single")
+```
+
+
+## C
+
+**Plot the 3 Hierarchical Clustering models and compare.**
+
+```{r}
+
+# Plot HC complete dendrogram
+plot(hc.complete, main="Complete Linkage", xlab = "", sub = "", cex = 0.9)
+
+# Plot HC average dendrogram
+plot(hc.average, main = "Average Linkage", xlab = "", sub = "", cex = 0.9)
+
+# Plot HC single dendrogram
+plot(hc.single,main="Single Linkage", xlab = "", sub = "", cex = 0.9)
+```
+
+
+The "complete" and "average" linkages result in practically the same clusters and branching. The "single" linkages results in a very bushy dendrogram with more dissimilarity between groups.
+
+
+## D
+
+**Which of the 3 Hierarchical Clustering models is closest to the k-means model from part (a). You will need the cutree function.**
+
+```{r}
+# Cut complete linkage dendrogram
+hc.complete.cut <- cutree(tree = hc.complete, k = 4)
+
+# Compare complete hierarchical to k-means
+table(km.fit$cluster, hc.complete.cut)
+```
+
+```{r}
+# Cut average linkage dendrogram
+hc.average.cut <- cutree(tree = hc.average, k = 4)
+
+# Compare average hierarchical to k-means
+table(km.fit$cluster, hc.average.cut)
+```
+
+```{r}
+# Cut single linkage dendrogram
+hc.single.cut <- cutree(tree = hc.single, k = 4)
+
+# Compare single hierarchical to k-means
+table(km.fit$cluster, hc.single.cut)
+```
+
+Based on the above contingency tables, it looks like the "complete" linkage hierarchical clustering method has the highest agreement with the k-means clustering method.
+
+
+## Session Info
+
+```{r}
+sessionInfo()
+```
+
